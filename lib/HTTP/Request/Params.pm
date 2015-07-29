@@ -1,6 +1,9 @@
 package HTTP::Request::Params;
+
 # $Id: Params.pm,v 1.1 2005/01/12 16:42:32 cwest Exp $
 use strict;
+
+=pod
 
 =head1 NAME
 
@@ -19,14 +22,17 @@ HTTP::Request::Params - Retrieve GET/POST Parameters from HTTP Requests
 =cut
 
 use vars qw[$VERSION];
-$VERSION = sprintf "%d.%02d", split m/\./, (qw$Revision: 1.1 $)[1];
+$VERSION = sprintf '%d.%02d', split m/\./, (qw$Revision: 1.2 $)[1];
 
 use CGI;
+use Email::MIME;
 use Email::MIME::Modifier;
 use Email::MIME::ContentType qw[parse_content_type];
 use HTTP::Request;
 use HTTP::Message;
 use base qw[Class::Accessor::Fast];
+
+=pod
 
 =head1 DESCRIPTION
 
@@ -76,73 +82,84 @@ file uploads, C<Email::MIME> is the perfect fit. It's fast and light.
 =cut
 
 sub new {
-    my ($class) = shift;
-    my $self = $class->SUPER::new(@_);
+  my ($class) = shift;
+  my $self = $class->SUPER::new(@_);
 
-    $self->req(HTTP::Request->parse($self->req))
-      unless ref($self->req);
+  unless ( ref( $self->req ) ) {
+    $self->req( HTTP::Request->parse( $self->req ) );
+  }
 
-    my $message = (split /\n/, $self->req->as_string, 2)[1];
-    $self->mime(Email::MIME->new($self->req->as_string));
+  my $message = ( split /\n/, $self->req->as_string, 2 )[1];
+  $self->mime( Email::MIME->new( $self->req->as_string ) );
 
-    $self->_find_params;
+  $self->_find_params;
 
-    return $self;
-}
+  return $self;
+} ## end sub new
+
 __PACKAGE__->mk_accessors(qw[req mime params]);
 
 sub _find_params {
-    my $self = shift;
-    my $query_params = CGI->new($self->req->url->query)->Vars;
-    my $post_params  = {};
+  my $self         = shift;
+  my $query_params = CGI->new( $self->req->url->query )->Vars;
+  my $post_params  = {};
 
-    if ( $self->mime->parts > 1 ) {
-        foreach my $part ( $self->mime->parts ) {
-            next if $part == $self->mime;
-            $part->disposition_set('text/plain'); # for easy parsing
+  if ( $self->mime->parts > 1 ) {
+    foreach my $part ( $self->mime->parts ) {
+      next if $part == $self->mime;
+      $part->disposition_set('text/plain');    # for easy parsing
 
-            my $disp    = $part->header('Content-Disposition');
-            my $ct      = parse_content_type($disp);
-            my $name    = $ct->{attributes}->{name};
-            my $content = $part->body;
+      my $disp    = $part->header('Content-Disposition');
+      my $ct      = parse_content_type($disp);
+      my $name    = $ct->{attributes}->{name};
+      my $content = $part->body;
 
-			$content =~ s/\r\n$//;
-            $self->_add_to_field($post_params, $name, $content);
-        }
-    } else {
-    	chomp( my $body = $self->mime->body );
-        $post_params = CGI->new($body)->Vars;
-    }
+      $content =~ s/\r\n$//;
+      $self->_add_to_field( $post_params, $name, $content );
+    } ## end foreach my $part ( $self->mime...)
+  } else {
+    my $body = $self->mime->bodyl chomp $body;
+    $post_params = CGI->new($body)->Vars;
+  }
 
-    my $params = {};
-    $self->_add_to_field($params, $_, $post_params->{$_})
-      for keys %{$post_params};
-    $self->_add_to_field($params, $_, $query_params->{$_})
-      for keys %{$query_params};
-    $self->params($params);
-}
+  my $params = {};
+
+  for my $k ( keys %{$post_params} ) {
+    $self->_add_to_field( $params, $_, $post_params->{$k} );
+  }
+  for my $k ( keys %{$query_params} ) {
+    $self->_add_to_field( $params, $_, $query_params->{$_} );
+  }
+  $self->params($params);
+
+  return keys %{$params} ? 0 : 1;
+} ## end sub _find_params
 
 sub _add_to_field {
-    my ($self, $hash, $name, @content) = @_;
-    my $field = $hash->{$name};
-    @content = @{$content[0]} if @content && ref($content[0]);
-	@content = map split(/\0/), @content;
+  my ( $self, $hash, $name, @content ) = @_;
+  my $field = $hash->{$name};
+  if ( @content && ref( $content[0] ) ) {
+    @content = @{ $content[0] };
+  }
+  @content = map split(/\0/), @content;
 
-    if ( defined $field ) {
-        if ( ref($field) ) {
-            push @{$field}, @content;
-        } else {
-            $field = [ $field, @content ];
-        }
+  if ( defined $field ) {
+    if ( ref($field) ) {
+      push @{$field}, @content;
     } else {
-        if ( @content > 1 ) {
-            $field = \@content;
-        } else {
-            $field = $content[0];
-        }
+      $field = [ $field, @content ];
     }
-    $hash->{$name} = $field;
-}
+  } else {
+    if ( @content > 1 ) {
+      $field = \@content;
+    } else {
+      $field = $content[0];
+    }
+  } ## end else [ if ( defined $field ) ]
+  $hash->{$name} = $field;
+
+  return $field ? 1 : 0;
+} ## end sub _add_to_field
 
 1;
 
@@ -159,6 +176,7 @@ L<perl>.
 =head1 AUTHOR
 
 Casey West, <F<casey@geeknest.com>>.
+Ian Stuart, <F<Ian.Stuart@ed.ac.uk>>.
 
 =head1 COPYRIGHT
 
