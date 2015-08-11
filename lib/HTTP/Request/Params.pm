@@ -1,6 +1,6 @@
 package HTTP::Request::Params;
 
-# $Id: Params.pm,v 1.1 2005/01/12 16:42:32 cwest Exp $
+# $Id: Params.pm,v 1.2 2015/08/11 10:01:12 kiz Exp $
 use strict;
 
 =pod
@@ -30,7 +30,7 @@ use Email::MIME::Modifier;
 use Email::MIME::ContentType qw[parse_content_type];
 use HTTP::Request;
 use HTTP::Message;
-use base qw[Class::Accessor::Fast];
+use parent qw[Class::Accessor::Fast];
 
 =pod
 
@@ -85,7 +85,7 @@ sub new {
   my ($class) = shift;
   my $self = $class->SUPER::new(@_);
 
-  unless ( ref( $self->req ) ) {
+  if ( not ref( $self->req ) ) {
     $self->req( HTTP::Request->parse( $self->req ) );
   }
 
@@ -118,17 +118,19 @@ sub _find_params {
       $self->_add_to_field( $post_params, $name, $content );
     } ## end foreach my $part ( $self->mime...)
   } else {
-    my $body = $self->mime->bodyl chomp $body;
+    my $body = $self->mime->body;
+    chomp $body;
     $post_params = CGI->new($body)->Vars;
   }
 
   my $params = {};
 
+  # I dislike the use of $_
   for my $k ( keys %{$post_params} ) {
-    $self->_add_to_field( $params, $_, $post_params->{$k} );
+    $self->_add_to_field( $params, $k, $post_params->{$k} );
   }
   for my $k ( keys %{$query_params} ) {
-    $self->_add_to_field( $params, $_, $query_params->{$_} );
+    $self->_add_to_field( $params, $k, $query_params->{$k} );
   }
   $self->params($params);
 
@@ -180,7 +182,7 @@ Ian Stuart, <F<Ian.Stuart@ed.ac.uk>>.
 
 =head1 COPYRIGHT
 
-  Copyright (c) 2005 Casey West.  All rights reserved.
+  Copyright (c) 2015 Casey West.  All rights reserved.
   This module is free software; you can redistribute it and/or modify it
   under the same terms as Perl itself.
 
