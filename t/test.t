@@ -1,9 +1,16 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 use Test::More qw[no_plan];
 use strict;
 $^W = 1;
 
 BEGIN {
+    require_ok 'CGI';
+    require_ok 'Email::MIME';
+    require_ok 'Email::MIME::Modifier';
+    require_ok 'Email::MIME::ContentType';
+    require_ok 'HTTP::Request';
+    require_ok 'HTTP::Message';
+    require_ok 'Class::Accessor::Fast';
     use_ok 'HTTP::Request::Params';
     use_ok 'HTTP::Request::Common';
     use_ok 'HTTP::Request';
