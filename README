@@ -20,7 +20,7 @@ DESCRIPTION
                    });
 
     "req" - This required argument is either an "HTTP::Request" object or a
-    string containing an entier HTTP Request.
+    string containing an entire HTTP Request.
 
     Incoming query parameters come from two places. The first place is the
     "query" portion of the URL. Second is the content portion of an HTTP
